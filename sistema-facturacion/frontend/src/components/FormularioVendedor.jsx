@@ -15,6 +15,10 @@ const FormularioVendedor = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.nombre || !formData.email) {
+      alert("Nombre y email son obligatorios");
+      return;
+    }
     try {
       await axios.post("http://localhost:5000/api/vendedores", formData);
       alert("✅ Vendedor guardado correctamente");

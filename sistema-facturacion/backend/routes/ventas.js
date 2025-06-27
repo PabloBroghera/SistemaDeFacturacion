@@ -1,39 +1,84 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const Venta = require("../models/Venta");
-const Producto = require("../models/Producto");
+const Venta = require('../models/Venta');
+const Producto = require('../models/Producto');
 
-// Registrar venta y descontar stock
-router.post("/", async (req, res) => {
+// Registrar venta con múltiples productos
+router.post('/', async (req, res) => {
   try {
-    const { producto, cantidad, cliente, vendedor, moneda, sucursal } = req.body;
+    const { productos, cliente, vendedor, moneda, sucursal } = req.body;
 
-    // Verificar que el producto exista
-    const prod = await Producto.findById(producto);
-    if (!prod) return res.status(404).json({ error: "Producto no encontrado" });
+    if (!productos || productos.length === 0) {
+      return res.status(400).json({ error: 'Debe incluir al menos un producto.' });
+    }
 
-    if (prod.stock < cantidad) return res.status(400).json({ error: "Stock insuficiente" });
+    let total = 0;
+    const detalle = [];
 
-    // Descontar stock
-    prod.stock -= cantidad;
-    await prod.save();
+    for (let item of productos) {
+      const producto = await Producto.findById(item.productoId);
+      if (!producto) {
+        return res.status(404).json({ error: `Producto no encontrado: ${item.productoId}` });
+      }
 
-    // Crear venta
+      if (producto.stock < item.cantidad) {
+        return res.status(400).json({ error: `Stock insuficiente para el producto: ${producto.nombre}` });
+      }
+
+      producto.stock -= item.cantidad;
+      await producto.save();
+
+      const subtotal = producto.precio * item.cantidad;
+      total += subtotal;
+
+      detalle.push({
+        producto: producto._id,
+        nombre: producto.nombre,
+        cantidad: item.cantidad,
+        precioUnitario: producto.precio,
+        subtotal,
+      });
+    }
+
     const nuevaVenta = new Venta({
-      producto,
-      cantidad,
+      productos: detalle,
       cliente,
       vendedor,
       moneda,
       sucursal,
-      fecha: new Date()
+      total,
+      fecha: new Date(),
     });
 
     await nuevaVenta.save();
-    res.status(201).json(nuevaVenta);
-  } catch (err) {
-    console.error("❌ Error al registrar venta:", err);
-    res.status(500).json({ error: err.message });
+    res.status(201).json({ mensaje: 'Venta registrada con éxito', venta: nuevaVenta });
+  } catch (error) {
+    console.error('❌ Error al registrar la venta:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Obtener historial de ventas
+router.get('/', async (req, res) => {
+  try {
+    const ventas = await Venta.find()
+      .populate('cliente')
+      .populate('vendedor')
+      .sort({ fecha: -1 });
+    res.json(ventas);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener ventas' });
+  }
+});
+
+// Eliminar venta (solo permitido para dueño con clave maestra en frontend)
+router.delete('/:id', async (req, res) => {
+  try {
+    const venta = await Venta.findByIdAndDelete(req.params.id);
+    if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
+    res.json({ mensaje: 'Venta eliminada correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar venta' });
   }
 });
 

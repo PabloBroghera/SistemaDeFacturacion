@@ -17,6 +17,10 @@ function FormularioCliente() {
   };
 
   const handleSubmit = async (e) => {
+    if (!formData.nombre) {
+      alert("El nombre es obligatorio");
+      return;
+    }
     e.preventDefault();
     try {
       await axios.post("http://localhost:5000/api/clientes", formData);

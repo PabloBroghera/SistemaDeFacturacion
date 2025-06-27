@@ -16,7 +16,7 @@ app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
 
 // Rutas
 const productosRoutes = require('./routes/productos');
-const ventasRoutes = require('./routes/ventas');
+
 
 app.use('/api/productos', productosRoutes);
 app.use('/api/ventas', ventasRoutes);
